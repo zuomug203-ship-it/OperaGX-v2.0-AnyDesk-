@@ -1,4 +1,4 @@
-name: Cloud PC + AnyDesk + Opera GX (Ultimate Fix)
+name: Cloud PC + AnyDesk + Opera GX (Forced Feature Active)
 
 on:
   workflow_dispatch:
@@ -60,7 +60,6 @@ jobs:
       - name: Minimize Running Infrastructure Windows
         run: |
           Write-Host "Sending active command prompt windows to the taskbar tray..."
-          # Uses a shell automation script object to safely minimize all window contexts to clean up your video preview area
           $shell = New-Object -ComObject Shell.Application
           $shell.MinimizeAll()
 
@@ -69,10 +68,18 @@ jobs:
           Write-Host "Forcing resolution calibration matrix..."
           Set-DisplayResolution -Width 1280 -Height 720 -Force -ErrorAction SilentlyContinue
 
-      - name: Download & Force Consumer Build of Opera GX
+      - name: Pre-Inject User Profiles & Install Opera GX
         run: |
-          Write-Host "Fetching consumer-stable Opera GX Core..."
-          # Pulls the standalone consumer package to avoid enterprise policy restrictions
+          Write-Host "Creating local browser preferences to bypass welcome pages..."
+          $appDataFolder = "$env:APPDATA\Opera Software\Opera GX Stable"
+          if (-not (Test-Path $appDataFolder)) { New-Item -ItemType Directory -Path $appDataFolder -Force | Out-Null }
+          
+          # Injects configuration states directly to indicate the user onboarding flow is completed
+          $prefFile = "$appDataFolder\Preferences"
+          $prefData = '{"gxa":{"rewards_activated":true,"sidebar_icon_enabled":true},"browser":{"has_seen_welcome_page":true,"welcome_page_onboarding_done":true}}'
+          Set-Content -Path $prefFile -Value $prefData -Force
+          
+          Write-Host "Fetching stable installer package..."
           $url = "https://net.geo.opera.com/opera_gx/stable/windows?utm_source=inf&utm_medium=gx"
           $installer = "$env:TEMP\OperaGXSetup.exe"
           Invoke-WebRequest -Uri $url -OutFile $installer
@@ -86,15 +93,15 @@ jobs:
               Move-Item -Path "$userDesktop\Opera GX.lnk" -Destination $publicDesktop -Force -ErrorAction SilentlyContinue
           }
           
-          Write-Host "Configuring explicit launcher shortcut with forced profile engine routing..."
+          Write-Host "Configuring explicit launch options to hold open the target sidebar element..."
           $operaExe = "$env:ProgramFiles\Opera GX\opera.exe"
           if (-not (Test-Path $operaExe)) { $operaExe = "$env:ProgramFiles (x86)\Opera GX\opera.exe" }
           
           $WshShell = New-Object -ComObject WScript.Shell
           $Shortcut = $WshShell.CreateShortcut("$publicDesktop\Opera GX Browser.lnk")
           $Shortcut.TargetPath = $operaExe
-          # Forces the browser to load without data center isolation restrictions active
-          $Shortcut.Arguments = "--enable-features=GXRewards,GXRewardsSidebarItem --with-feature:gx-rewards=1"
+          # Direct entry command flags forcing the rewards panel layout components to mount active
+          $Shortcut.Arguments = "https://www.opera.com/gx/forsaken --enable-features=GXRewards,GXRewardsSidebarItem"
           $Shortcut.Save()
 
       - name: Fetch and Display AnyDesk Connection Address
