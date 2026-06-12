@@ -1,4 +1,4 @@
-name: Cloud PC + RustDesk + Opera GX (Portable Service Deployment)
+name: Cloud PC + AnyDesk + Opera GX (1080p Display)
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 190
     env:
-      RUSTDESK_PASS: Pass@1234
+      ANYDESK_PASS: Pass@1234
       RUNTIME_MINUTES: 180
 
     steps:
@@ -31,35 +31,23 @@ jobs:
               if (Test-Path "$userDesktop\$target") { Remove-Item "$userDesktop\$target" -Force -ErrorAction SilentlyContinue }
           }
 
-      - name: Download and Force Install RustDesk Client (Portable Method)
+      - name: Download and Force Install AnyDesk Client
         run: |
-          Write-Host "Fetching RustDesk Executable Layout..."
-          $url = "https://github.com/rustdesk/rustdesk/releases/download/1.3.1/rustdesk-1.3.1-x86_64.exe"
-          $targetDir = "C:\Program Files\RustDesk"
-          $rdExe = "$targetDir\rustdesk.exe"
-          
-          # Create directory manually to avoid installer prompt hangs
-          if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Path $targetDir -Force }
+          Write-Host "Fetching stable AnyDesk executable core..."
+          $url = "https://download.anydesk.com/AnyDesk.exe"
+          $dst = "$env:TEMP\AnyDesk.exe"
           
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          Invoke-WebRequest -Uri $url -OutFile $rdExe -UserAgent "Mozilla/5.0"
+          Invoke-WebRequest -Uri $url -OutFile $dst -UserAgent "Mozilla/5.0"
           
-          Write-Host "Registering background system service directly..."
-          # Registering the service from the permanent path directly bypasses the installation wizard loop
-          Start-Process -FilePath $rdExe -ArgumentList "--install-service" -Wait
-          Start-Sleep -Seconds 10
+          Write-Host "Registering background system execution threads..."
+          Start-Process $dst -ArgumentList "--install", "C:\Program Files (x86)\AnyDesk", "--silent" -Wait
+          Start-Sleep -Seconds 5
 
       - name: Configure Unattended Security Password & Connection Profile
         run: |
           Write-Host "Injecting security connection keys into the execution instance..."
-          $rdExe = "C:\Program Files\RustDesk\rustdesk.exe"
-          
-          if (Test-Path $rdExe) {
-              Start-Process -FilePath $rdExe -ArgumentList "--password", "${{ env.RUSTDESK_PASS }}" -Wait
-          } else {
-              Write-Error "CRITICAL: RustDesk binary path not found after automated deployment!"
-              exit 1
-          }
+          echo "${{ env.ANYDESK_PASS }}" | & "C:\Program Files (x86)\AnyDesk\AnyDesk.exe" --set-password
           
           New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "EnableUIADesktopToggle" -PropertyType DWord -Value 1 -Force -ErrorAction SilentlyContinue
           
@@ -73,10 +61,11 @@ jobs:
           $shell = New-Object -ComObject Shell.Application
           $shell.MinimizeAll()
 
-      - name: Optimize Resolution for Mobile Display
+      - name: Optimize Canvas Resolution for No-Scroll Mobile View
         run: |
-          Write-Host "Forcing resolution calibration matrix..."
-          Set-DisplayResolution -Width 1280 -Height 720 -Force -ErrorAction SilentlyContinue
+          Write-Host "Forcing screen resolution calibration to 1920x1080 frame buffer..."
+          # This expands the desktop bounds to 1080p to fit your mobile viewer cleanly
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force -ErrorAction SilentlyContinue
 
       - name: Download & Force Consumer Build of Opera GX
         run: |
@@ -103,17 +92,15 @@ jobs:
           $Shortcut.Arguments = "https://www.opera.com/gx/forsaken --no-first-run --enable-features=GXRewards,GXRewardsSidebarItem --with-feature:gx-rewards=1"
           $Shortcut.Save()
 
-      - name: Query Engine ID and Generate Output Logs
+      - name: Fetch and Display AnyDesk Connection Credentials
         run: |
-          Write-Host "Querying RustDesk core service via CLI endpoint..."
-          $rdExe = "C:\Program Files\RustDesk\rustdesk.exe"
+          Write-Host "Querying configuration engine for local terminal ID..."
           $deviceId = "Not Found"
           
-          # Poll the internal CLI helper to grab the generated ID directly
-          for ($i = 1; $i -le 15; $i++) {
-              $idOutput = & $rdExe --get-id 2>$null
+          for ($i = 1; $i -le 10; $i++) {
+              $idOutput = & "C:\Program Files (x86)\AnyDesk\AnyDesk.exe" --get-id 2>$null
               if ($idOutput -match '(\d+)') {
-                  $deviceId = $Matches[1]
+                  $deviceId = $idOutput.Trim()
                   break
               }
               Start-Sleep -Seconds 3
@@ -126,10 +113,10 @@ jobs:
           $Reset = "$ESC[0m"
           
           Write-Host "${Green}====================================================${Reset}"
-          Write-Host "${Green}      RUSTDESK CLOUD PC IS READY TO CONNECT         ${Reset}"
+          Write-Host "${Green}      ANYDESK CLOUD PC IS READY TO CONNECT          ${Reset}"
           Write-Host "${Green}====================================================${Reset}"
-          Write-Host "${Yellow} RUSTDESK ID     : ${Red}${deviceId}${Reset}"
-          Write-Host "${Yellow} ACCESS PASSWORD : ${Red}${{ env.RUSTDESK_PASS }}${Reset}"
+          Write-Host "${Yellow} ANYDESK ID      : ${Red}${deviceId}${Reset}"
+          Write-Host "${Yellow} ACCESS PASSWORD : ${Red}${{ env.ANYDESK_PASS }}${Reset}"
           Write-Host "${Green}====================================================${Reset}"
 
       - name: Keep alive
