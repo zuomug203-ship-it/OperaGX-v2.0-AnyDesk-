@@ -84,17 +84,26 @@ jobs:
 
       - name: Download & Pre-Install Opera GX
         run: |
-          Write-Host "Fetching Opera GX Offline Installer..."
+          Write-Host "Fetching Opera GX Installer..."
           $url = "https://net.geo.opera.com/opera_gx/stable/windows?utm_source=forsaken&utm_medium=gx"
           $installer = "$env:TEMP\OperaGXSetup.exe"
           Invoke-WebRequest -Uri $url -OutFile $installer
           
-          Write-Host "Pre-installing Opera GX silently for all users..."
-          Start-Process -FilePath $installer -ArgumentList "/silent", "/allusers", "/launcherbrowser=0", "/desktopshortcut=1" -Wait
+          Write-Host "Pre-installing Opera GX silently using Chromium Core flags..."
+          # Reverting back to the exact double-dash flags that successfully bypassed the freeze
+          $args = @(
+              "--silent=1",
+              "--allusers=1",
+              "--launchbrowser=0",
+              "--desktopshortcut=1",
+              "--startmenushortcut=1"
+          )
+          Start-Process -FilePath $installer -ArgumentList $args -Wait
           
-          # Drop it perfectly on the Public Desktop so our new custom user sees it instantly
+          # Push the shortcut to the Public Desktop directory
           $publicDesktop = [Environment]::GetFolderPath("CommonDesktopDirectory")
           $userDesktop = "$env:USERPROFILE\Desktop"
+          
           if (Test-Path "$userDesktop\Opera GX.lnk") {
               Move-Item -Path "$userDesktop\Opera GX.lnk" -Destination $publicDesktop -Force -ErrorAction SilentlyContinue
           }
@@ -102,8 +111,10 @@ jobs:
           Write-Host "Creating the direct video-link trigger shortcut..."
           $WshShell = New-Object -ComObject WScript.Shell
           $Shortcut = $WshShell.CreateShortcut("$publicDesktop\Claim Rewards Here.lnk")
+          
           $operaExe = "$env:ProgramFiles\Opera GX\opera.exe"
           if (-not (Test-Path $operaExe)) { $operaExe = "$env:ProgramFiles (x86)\Opera GX\opera.exe" }
+          
           $Shortcut.TargetPath = $operaExe
           $Shortcut.Arguments = "https://www.opera.com/gx/forsaken"
           $Shortcut.Save()
