@@ -1,4 +1,4 @@
-name: Cloud PC + AnyDesk + Opera GX (Touch Gestures Fixed)
+name: Cloud PC + AnyDesk + Opera GX (Ultimate Fix Restored)
 
 on:
   workflow_dispatch:
@@ -51,10 +51,10 @@ jobs:
           
           cmd.exe /c "echo ${{ env.ANYDESK_PASS }} | `"$ad`" --set-password"
           
-          # 1. Force Windows to allow full UI Automation and Touch Injection over RDP layers
+          # Force Windows to allow UI Automation and Touch Injection over RDP layers
           New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "EnableUIADesktopToggle" -PropertyType DWord -Value 1 -Force -ErrorAction SilentlyContinue
           
-          # 2. Unblock Touch Remote/Tablet Mode restrictions in Remote Desktop Services
+          # Unblock Touch Remote/Tablet Mode restrictions in Remote Desktop Services
           $tsPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations"
           New-ItemProperty -Path $tsPath -Name "TouchMode" -PropertyType DWord -Value 1 -Force -ErrorAction SilentlyContinue
           New-ItemProperty -Path $tsPath -Name "EnableTouchInjection" -PropertyType DWord -Value 1 -Force -ErrorAction SilentlyContinue
@@ -68,6 +68,7 @@ jobs:
       - name: Minimize Running Infrastructure Windows
         run: |
           Write-Host "Sending active command prompt windows to the taskbar tray..."
+          # Restored your original working shell automation layout
           $shell = New-Object -ComObject Shell.Application
           $shell.MinimizeAll()
 
@@ -92,14 +93,15 @@ jobs:
               Move-Item -Path "$userDesktop\Opera GX.lnk" -Destination $publicDesktop -Force -ErrorAction SilentlyContinue
           }
           
-          Write-Host "Configuring explicit launcher shortcut with forced profile engine routing..."
+          Write-Host "Configuring explicit launcher shortcut with forced promo link and sidebar flags..."
           $operaExe = "$env:ProgramFiles\Opera GX\opera.exe"
           if (-not (Test-Path $operaExe)) { $operaExe = "$env:ProgramFiles (x86)\Opera GX\opera.exe" }
           
           $WshShell = New-Object -ComObject WScript.Shell
           $Shortcut = $WshShell.CreateShortcut("$publicDesktop\Opera GX Browser.lnk")
           $Shortcut.TargetPath = $operaExe
-          $Shortcut.Arguments = "--enable-features=GXRewards,GXRewardsSidebarItem --with-feature:gx-rewards=1"
+          # Routes directly to your link, suppresses the intro splash, and injects feature flags
+          $Shortcut.Arguments = "https://www.opera.com/gx/forsaken --no-first-run --enable-features=GXRewards,GXRewardsSidebarItem --with-feature:gx-rewards=1"
           $Shortcut.Save()
 
       - name: Fetch and Display AnyDesk Connection Address
