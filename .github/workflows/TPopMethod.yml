@@ -38,9 +38,7 @@ jobs:
           Write-Host "Downloading background rendering pipeline..."
           choco install ultravnc -y --no-progress
           
-          # Fix: Updated to point to the exact directory created by Chocolatey
-          $vncPath = "C:\Program Files\uvnc bvba\UltraVNC"
-          Stop-Service -Name "uvnc_service" -ErrorAction SilentlyContinue
+          $vncPath = "C:\\Program Files\\uvnc bvba\\UltraVNC"
           
           Write-Host "Injecting secure access configuration..."
           # Hex hash '1614749372131920' translates straight to 'Pass1234'
@@ -52,8 +50,12 @@ jobs:
           secuLevel=2
           PortNumber=5900
           "@
-          Set-Content -Path "$vncPath\ultravnc.ini" -Value $iniContent -Force
-          Start-Service -Name "uvnc_service"
+          Set-Content -Path "$vncPath\\ultravnc.ini" -Value $iniContent -Force
+          
+          Write-Host "Launching VNC Engine directly (Bypassing Windows Service Wrapper)..."
+          # Launching the executable directly using the -run switch so it won't crash on missing services
+          Start-Process -FilePath "$vncPath\\winvnc.exe" -ArgumentList "-run" -NoNewWindow
+          Start-Sleep -Seconds 5
 
       - name: Initialize HTML5 Browser Interface (noVNC)
         run: |
@@ -108,4 +110,5 @@ jobs:
           while ((Get-Date) -lt $end) {
             Write-Host "Web View Portal Streaming | Heartbeat Live"
             Start-Sleep -Seconds 60
+          }            Start-Sleep -Seconds 60
           }
