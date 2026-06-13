@@ -76,6 +76,10 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile $installer
           
           Start-Process -FilePath $installer -ArgumentList "--silent=1", "--allusers=1", "--launchbrowser=0", "--desktopshortcut=1" -Wait
+          Start-Sleep -Seconds 5
+          
+          # Force terminate the automatic pop-up window so it doesn't block the screen
+          Stop-Process -Name "opera" -Force -ErrorAction SilentlyContinue
           
           $publicDesktop = [Environment]::GetFolderPath("CommonDesktopDirectory")
           $userDesktop = "$env:USERPROFILE\Desktop"
@@ -96,12 +100,12 @@ jobs:
 
       - name: Launch RustDesk and Custom Configured Browser
         run: |
-          # Fire up RustDesk and leave it active on the desktop display layout
+          # Fire up RustDesk so it acts as our primary window context
           $rdExe = "C:\Program Files\RustDesk\rustdesk.exe"
           Start-Process -FilePath $rdExe -ErrorAction SilentlyContinue
           Start-Sleep -Seconds 4
 
-          # Launch Opera GX via your custom engineered shortcut layout
+          # Launch Opera GX behind it via your custom engineered shortcut layout
           $publicDesktop = [Environment]::GetFolderPath("CommonDesktopDirectory")
           Start-Process "$publicDesktop\Opera GX Browser.lnk"
           Start-Sleep -Seconds 6
@@ -109,7 +113,6 @@ jobs:
       - name: Hide Host Agent Window ONLY (Targeted Minimization)
         run: |
           Write-Host "Targeting and minimizing host runner console window background thread..."
-          # Instead of minimizing everything, we use Win32 API to find ONLY the command window running this agent script
           $memberDef = @'
           [DllImport("user32.dll")]
           public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
@@ -120,7 +123,6 @@ jobs:
           
           $consoleHandle = $win32::GetConsoleWindow()
           if ($consoleHandle -ne [IntPtr]::Zero) {
-              # 2 = SW_MINIMIZE forces only the action console to the taskbar tray, leaving RustDesk open
               $win32::ShowWindowAsync($consoleHandle, 2) | Out-Null
               Write-Host "Host Agent window safely tucked away."
           }
