@@ -1,4 +1,4 @@
-name: Cloud PC + Web Browser Link + Opera GX (Handshake Core Fix)
+name: Cloud PC + Web Browser Link + Opera GX (Tunnel Persistence Fix)
 
 on:
   workflow_dispatch:
@@ -47,58 +47,50 @@ jobs:
           Copy-Item -Path "C:\noVNC\noVNC-1.5.0\*" -Destination "C:\noVNC" -Recurse -Force
           Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile "tunnel.exe"
 
-      - name: Spin Up Multi-Channel HTTP Native Server & Tunnel
+      - name: Launch Persistent HTTP Web Matrix
         run: |
-          Write-Host "Starting Websockify TCP proxy pipeline..."
-          # Run websockify target cleanly on port 6080 for web-socket handling exclusively
+          Write-Host "Starting standard web server frame on port 8080..."
+          # Uses the native Python system pre-baked in windows-latest images to serve noVNC index files safely
+          Start-Process python -ArgumentList "-m http.server 8080 --directory C:\noVNC"
+          
+          Write-Host "Starting Websockify on backend port 6080..."
           Start-Process websockify -ArgumentList "6080 localhost:5900"
           
-          Write-Host "Deploying background Windows HTTP matrix handler..."
-          # This background script block handles HTTP GET web file requests natively on port 8080 
-          # ensuring Cloudflare gets clean, authorized code responses.
-          $HttpListenerScript = {
-              $listener = New-Object System.Net.HttpListener
-              $listener.Prefixes.Add("http://127.0.0.1:8080/")
-              $listener.Start()
-              while ($listener.IsListening) {
-                  $context = $listener.GetContext()
-                  $request = $context.Request
-                  $response = $context.Response
-                  
-                  $urlPath = $request.Url.LocalPath
-                  if ($urlPath -eq "/" -or $urlPath -eq "") { $urlPath = "/vnc.html" }
-                  $localFile = "C:\noVNC" + $urlPath.Replace("/", "\")
-                  
-                  if (Test-Path $localFile -PathType Leaf) {
-                      $bytes = [System.IO.File]::ReadAllBytes($localFile)
-                      $response.ContentLength64 = $bytes.Length
-                      $response.OutputStream.Write($bytes, 0, $bytes.Length)
-                  } else {
-                      $response.StatusCode = 404
-                  }
-                  $response.Close()
-              }
+          Write-Host "Verifying port handshakes are live..."
+          $retries = 0
+          while (-not (Test-NetConnection -ComputerName 127.0.0.1 -Port 8080).TcpTestSucceeded -and $retries -lt 15) {
+              Start-Sleep -Seconds 2
+              $retries++
           }
-          Start-Process powershell -ArgumentList "-Command", $HttpListenerScript -WindowStyle Hidden
-          Start-Sleep -Seconds 5
+
+      - name: Configure and Establish Persistent Cloudflare Edge Tunnel
+        run: |
+          Write-Host "Writing local config profile rules..."
+          # Creating an explicit ingress configuration map blocks the edge server from unregistering the URL route
+          $ConfigContent = @"
+          ingress:
+            - hostname: "*"
+              service: http://127.0.0.1:8080
+            - service: http_status:404
+          "@
+          Out-File -FilePath "config.yml" -InputObject $ConfigContent -Encoding ascii
           
-          Write-Host "Launching Cloudflare Tunnel targeting native Web Listener..."
+          Write-Host "Starting secure tunnel process via config profile rules..."
           $LogFile = "$env:TEMP\tunnel.log"
-          Start-Process .\tunnel.exe -ArgumentList "tunnel", "--url", "http://127.0.0.1:8080" -RedirectStandardError $LogFile
+          Start-Process .\tunnel.exe -ArgumentList "tunnel", "--config", "config.yml" -RedirectStandardError $LogFile
           Start-Sleep -Seconds 12
           
           $WebLink = (Get-Content $LogFile -Raw) | Select-String -Pattern 'https://[a-zA-Z0-9-]+\.trycloudflare\.com' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value -First 1
           if ($WebLink) {
+              $FinalUrl = $WebLink + "/vnc.html"
               Write-Host "===================================================="
               Write-Host "      WEB-BROWSER CLOUD PC IS READY TO CONNECT       "
               Write-Host "===================================================="
-              Write-Host " VIDEO ACCESS URL : $WebLink/vnc.html"
-              Write-Host " ACCESS PASSWORD  : ${{ env.VNC_PASS }}"
+              Write-Host " CLICK LINK: $FinalUrl"
+              Write-Host " PASSWORD  : ${{ env.VNC_PASS }}"
               Write-Host "===================================================="
-              Write-Host "NOTE FOR VIDEO: In the web settings menu layout when loaded,"
-              Write-Host "change WebSocket port mapping to 6080 to establish stream!"
           } else {
-              Write-Error "CRITICAL: Cloudflare failed to register the tunnel."
+              Write-Error "CRITICAL: Cloudflare failed to register the tunnel configuration rules."
           }
 
       - name: Keep alive
