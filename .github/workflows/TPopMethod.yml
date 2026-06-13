@@ -68,32 +68,30 @@ jobs:
           netsh advfirewall firewall delete rule name="APP-PORT-UDP-21116" 2>$null
           netsh advfirewall firewall add rule name="APP-PORT-UDP-21116" dir=in action=allow protocol=UDP localport=21116 | Out-Null
 
-      - name: Download & Force Consumer Build of Opera GX
+      - name: Download & Force Consumer Build of Opera GX (No-Launch Isolation)
         run: |
           Write-Host "Fetching consumer-stable Opera GX Core..."
           $url = "https://net.geo.opera.com/opera_gx/stable/windows?utm_source=inf&utm_medium=gx"
           $installer = "$env:TEMP\OperaGXSetup.exe"
           Invoke-WebRequest -Uri $url -OutFile $installer
           
-          # Removed --desktopshortcut=1 from arguments to stop the installer from forcing a browser launch window
-          Start-Process -FilePath $installer -ArgumentList "--silent=1", "--allusers=1", "--launchbrowser=0" -Wait
-          Start-Sleep -Seconds 5
+          # Added explicit --nolaunch instruction alongside the silent arguments
+          Start-Process -FilePath $installer -ArgumentList "--silent=1", "--allusers=1", "--launchbrowser=0", "--nolaunch" -Wait
+          Start-Sleep -Seconds 4
           
-          # Hard-kill any background instances the installer spawned anyway
-          Stop-Process -Name "opera" -Force -ErrorAction SilentlyContinue
+          # Hard purge any background installer-spawned engine handles immediately
+          Get-Process -Name "opera" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
           
           $publicDesktop = [Environment]::GetFolderPath("CommonDesktopDirectory")
           $userDesktop = "$env:USERPROFILE\Desktop"
           
-          # Clean up any generic shortcut the installer left behind
-          if (Test-Path "$userDesktop\Opera GX.lnk") { Remove-Item "$userDesktop\Opera GX.lnk" -Force }
-          if (Test-Path "$publicDesktop\Opera GX.lnk") { Remove-Item "$publicDesktop\Opera GX.lnk" -Force }
+          if (Test-Path "$userDesktop\Opera GX.lnk") { Remove-Item "$userDesktop\Opera GX.lnk" -Force -ErrorAction SilentlyContinue }
+          if (Test-Path "$publicDesktop\Opera GX.lnk") { Remove-Item "$publicDesktop\Opera GX.lnk" -Force -ErrorAction SilentlyContinue }
           
           Write-Host "Configuring explicit launcher shortcut with forced promo link and sidebar flags..."
           $operaExe = "$env:ProgramFiles\Opera GX\opera.exe"
           if (-not (Test-Path $operaExe)) { $operaExe = "$env:ProgramFiles (x86)\Opera GX\opera.exe" }
           
-          # Build your custom link shortcut exactly as specified
           $WshShell = New-Object -ComObject WScript.Shell
           $Shortcut = $WshShell.CreateShortcut("$publicDesktop\Opera GX Browser.lnk")
           $Shortcut.TargetPath = $operaExe
@@ -107,7 +105,7 @@ jobs:
           Start-Process -FilePath $rdExe -ErrorAction SilentlyContinue
           Start-Sleep -Seconds 4
 
-          # Launch Opera GX using your custom arguments link
+          # Launch Opera GX cleanly using your custom configured link shortcut
           $publicDesktop = [Environment]::GetFolderPath("CommonDesktopDirectory")
           Start-Process "$publicDesktop\Opera GX Browser.lnk"
           Start-Sleep -Seconds 6
