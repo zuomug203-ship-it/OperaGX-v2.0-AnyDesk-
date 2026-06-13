@@ -29,7 +29,6 @@ jobs:
           Start-Service -Name "TermService" -ErrorAction SilentlyContinue
           
           Write-Host "Overriding system permissions with static access key..."
-          # This explicitly forces the runner's administrator account to use 'Pass1234'
           $adminUser = [ADSI]"WinNT://localhost/runneradmin,user"
           $adminUser.SetPassword("Pass1234")
           Write-Host "✅ System password permanently locked to: Pass1234"
@@ -39,10 +38,11 @@ jobs:
           Write-Host "Downloading background rendering pipeline..."
           choco install ultravnc -y --no-progress
           
-          $vncPath = "C:\Program Files\UltraVNC"
+          # Fix: Updated to point to the exact directory created by Chocolatey
+          $vncPath = "C:\Program Files\uvnc bvba\UltraVNC"
           Stop-Service -Name "uvnc_service" -ErrorAction SilentlyContinue
           
-          # This maps the screen capture straight to our internal communication port
+          Write-Host "Injecting secure access configuration..."
           # Hex hash '1614749372131920' translates straight to 'Pass1234'
           $iniContent = @"
           [UltraVNC]
@@ -58,11 +58,9 @@ jobs:
       - name: Initialize HTML5 Browser Interface (noVNC)
         run: |
           Write-Host "Setting up Javascript web host controller..."
-          # Install Node-based websockify to convert desktop video into raw web browser code
           npm install -g websockify
           
           Write-Host "Launching web stream decoder on port 8080..."
-          # Routes the local VNC screen port (5900) into an HTML5 web-compatible socket (8080)
           Start-Process websockify -ArgumentList "8080 localhost:5900" -NoNewWindow
           Start-Sleep -Seconds 5
 
@@ -75,7 +73,6 @@ jobs:
           ngrok config add-authtoken $NGROK_TOKEN
           
           Write-Host "Spawning HTTP link directly to port 8080..."
-          # This exposes the web interface out to the public internet securely
           Start-Process ngrok -ArgumentList "http 8080" -NoNewWindow
           Start-Sleep -Seconds 10
 
@@ -87,9 +84,6 @@ jobs:
                   $tunnels = Invoke-RestMethod -Uri $uri
                   $publicUrl = $tunnels.tunnels[0].public_url
                   if ($publicUrl) {
-                      # We construct a custom direct-auth URL link
-                      $webControlLink = "$publicUrl/vnc.html?autoconnect=true&password=Pass1234"
-                      
                       $Esc = [char]27
                       Write-Host "`n${Esc}[36m###########################################################################${Esc}[0m"
                       Write-Host "${Esc}[33m🚨 CLOUD WEB VIEW SYSTEM IS LIVE 🚨${Esc}[0m"
