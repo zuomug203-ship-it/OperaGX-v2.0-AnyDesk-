@@ -1,4 +1,4 @@
-name: Tailscale/Windows App
+name: RDP + Tailscale (Cleaned & Minimal)
 
 on:
   workflow_dispatch:
@@ -35,10 +35,11 @@ jobs:
           $targets = @("Unity Hub.lnk", "R 4.6.0.lnk", "Firefox.lnk", "Google Chrome.lnk", "Claim Rewards Here.lnk")
           foreach ($target in $targets) { Remove-Item "$publicDesktop\$target" -Force -ErrorAction SilentlyContinue }
 
-      - name: Download & Force Consumer Build of Opera GX
+      - name: Download & Force Forsaken Edition Build of Opera GX
         run: |
-          Write-Host "Fetching consumer-stable Opera GX Core..."
-          $url = "https://net.geo.opera.com/opera_gx/stable/windows?utm_source=inf&utm_medium=gx"
+          Write-Host "Fetching partner-authenticated Opera GX Forsaken Core..."
+          # Updated URL to include specific partner tags and sub-campaign identifiers for the Forsaken promotion
+          $url = "https://net.geo.opera.com/opera_gx/stable/windows?utm_source=inf&utm_medium=gx&utm_campaign=forsaken&utm_id=forsaken_promo"
           $installer = "$env:TEMP\OperaGXSetup.exe"
           Invoke-WebRequest -Uri $url -OutFile $installer
           
