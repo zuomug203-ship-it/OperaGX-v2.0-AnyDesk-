@@ -76,6 +76,16 @@ jobs:
           Write-Host "Forcing resolution calibration matrix..."
           Set-DisplayResolution -Width 1600 -Height 1200 -Force -ErrorAction SilentlyContinue
 
+      - name: Inject Registry Policy for Automatic Windscribe Installation
+        run: |
+          Write-Host "Registering Windscribe Extension ID via machine policy layers..."
+          # This forces Chromium/Opera to silently fetch, install, and run Windscribe from the store on boot
+          $registryPath = "HKLM:\SOFTWARE\Policies\Chromium\ExtensionInstallForcelist"
+          if (-not (Test-Path $registryPath)) { New-Item -Path $registryPath -Force | Out-Null }
+          
+          # 1 represents the list item sequence, appending the extension store schema target
+          New-ItemProperty -Path $registryPath -Name "1" -Value "bocbaocobfecmgdfodbmahedofdbhpao;https://clients2.google.com/service/update2/crx" -PropertyType String -Force | Out-Null
+
       - name: Download, Inject Profile Layout & Launch Opera GX
         run: |
           Write-Host "Fetching consumer-stable Opera GX Core..."
@@ -131,16 +141,6 @@ jobs:
                   $configObj.ui.visibility.GxRewards = $true
               }
 
-              # === LAYER 3: Explicit VPN Sidebar Pin Config ===
-              if (-not $configObj.freedom) { $configObj | Add-Member -MemberType NoteProperty -Name "freedom" -Value (New-Object PSObject) }
-              if (-not $configObj.freedom.proxy_switcher) { $configObj.freedom | Add-Member -MemberType NoteProperty -Name "proxy_switcher" -Value (New-Object PSObject) }
-              
-              if ($configObj.freedom.proxy_switcher.ui_visible -eq $null) {
-                  $configObj.freedom.proxy_switcher | Add-Member -MemberType NoteProperty -Name "ui_visible" -Value $true -Force
-              } else {
-                  $configObj.freedom.proxy_switcher.ui_visible = $true
-              }
-
               $finalJson = $configObj | ConvertTo-Json -Depth 100 -Compress
 
               # Clear out the un-mutated files cleanly
@@ -172,8 +172,6 @@ jobs:
           $Shortcut.Save()
 
           # 5. FOREGROUND SEQUENTIAL UNLOCK PIPELINE
-          # Launches the browser directly inside the script execution thread, waits 12 seconds 
-          # for boot profiles to load into RAM, then forcefully strips the read-only locks.
           Write-Host "Launching main interactive instance..."
           Start-Process -FilePath $operaExe -ArgumentList "https://www.opera.com/gx/forsaken", "--no-first-run"
           
