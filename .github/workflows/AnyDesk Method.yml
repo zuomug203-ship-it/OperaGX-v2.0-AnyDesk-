@@ -106,10 +106,10 @@ jobs:
           $backupPath = "$profileDir\Preferences.backup"
 
           if (Test-Path $prefPath) {
-              Write-Host "Natively generated Preferences found. Injecting GxRewards layouts..."
+              Write-Host "Natively generated Preferences found. Injecting GxRewards and Auto-VPN nodes..."
               $configObj = Get-Content $prefPath -Raw | ConvertFrom-Json
 
-              # Build and verify internal nesting layers for sidebar visibility
+              # === LAYER 1: GxRewards Sidebar Panel ===
               if (-not $configObj.ui) { $configObj | Add-Member -MemberType NoteProperty -Name "ui" -Value (New-Object PSObject) }
               if (-not $configObj.ui.browser) { $configObj.ui | Add-Member -MemberType NoteProperty -Name "browser" -Value (New-Object PSObject) }
               if (-not $configObj.ui.browser.sidebar) { $configObj.ui.browser | Add-Member -MemberType NoteProperty -Name "sidebar" -Value (New-Object PSObject) }
@@ -122,13 +122,30 @@ jobs:
                   $configObj.ui.browser.sidebar.item_prefs.visibility.GxRewards = $true
               }
 
-              # Build and verify root visibility layer
+              # === LAYER 2: Root Visibility Node ===
               if (-not $configObj.ui.visibility) { $configObj.ui | Add-Member -MemberType NoteProperty -Name "visibility" -Value (New-Object PSObject) }
               
               if ($configObj.ui.visibility.GxRewards -eq $null) {
                   $configObj.ui.visibility | Add-Member -MemberType NoteProperty -Name "GxRewards" -Value $true -Force
               } else {
                   $configObj.ui.visibility.GxRewards = $true
+              }
+
+              # === LAYER 3: Native Built-in VPN Engine Injection ===
+              if (-not $configObj.freedom) { $configObj | Add-Member -MemberType NoteProperty -Name "freedom" -Value (New-Object PSObject) }
+              if (-not $configObj.freedom.proxy_switcher) { $configObj.freedom | Add-Member -MemberType NoteProperty -Name "proxy_switcher" -Value (New-Object PSObject) }
+              
+              # Force proxy engine layers online to slip past anti-bot monitoring
+              if ($configObj.freedom.proxy_switcher.enabled -eq $null) {
+                  $configObj.freedom.proxy_switcher | Add-Member -MemberType NoteProperty -Name "enabled" -Value $true -Force
+              } else {
+                  $configObj.freedom.proxy_switcher.enabled = $true
+              }
+              
+              if ($configObj.freedom.proxy_switcher.ui_visible -eq $null) {
+                  $configObj.freedom.proxy_switcher | Add-Member -MemberType NoteProperty -Name "ui_visible" -Value $true -Force
+              } else {
+                  $configObj.freedom.proxy_switcher.ui_visible = $true
               }
 
               $finalJson = $configObj | ConvertTo-Json -Depth 100 -Compress
@@ -145,7 +162,7 @@ jobs:
               Write-Host "Locking profiles to Read-Only to bypass engine self-healing validation..."
               Set-ItemProperty -Path $prefPath -Name IsReadOnly -Value $true
               Set-ItemProperty -Path $backupPath -Name IsReadOnly -Value $true
-              Write-Host "Files successfully written and protected."
+              Write-Host "Files successfully written and protected with VPN auto-start enabled."
           } else {
               Write-Warning "Target preferences file initialization timeout encountered."
           }
