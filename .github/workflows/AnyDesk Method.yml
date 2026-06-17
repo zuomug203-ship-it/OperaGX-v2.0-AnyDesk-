@@ -15,7 +15,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 190
     env:
-      ANYDESK_PASS: Pass@1234
+      ANYDESK_PASS: Pass1234
       RUNTIME_MINUTES: 180
 
     steps:
@@ -76,35 +76,6 @@ jobs:
           Write-Host "Forcing resolution calibration matrix..."
           Set-DisplayResolution -Width 1600 -Height 1200 -Force -ErrorAction SilentlyContinue
 
-      - name: Pre-Configure VPN & Sidebar Rewards Layout
-        run: |
-          Write-Host "Generating Opera configuration directory structure..."
-          $profilePath = "$env:APPDATA\Opera Software\Opera GX Stable"
-          if (-not (Test-Path $profilePath)) { New-Item -ItemType Directory -Path $profilePath -Force | Out-Null }
-          
-          # Inject preferences to pin the GX Rewards icon and force the built-in VPN environment active
-          $prefJson = @'
-          {
-            "freedom": {
-              "proxy_switch": {
-                "vpn_enabled_once_by_user": true
-              }
-            },
-            "vpn": {
-              "blacklisted_interfaces": [],
-              "last_established_location": "OPTIMAL",
-              "preferred_location": "OPTIMAL"
-            },
-            "ui": {
-              "sidebar": {
-                "visible": true,
-                "pinned_items": ["gx_rewards", "vpn_sidebar_item"]
-              }
-            }
-          }
-          '@
-          Set-Content -Path "$profilePath\Preferences" -Value $prefJson -Force
-
       - name: Download & Force Consumer Build of Opera GX
         run: |
           Write-Host "Fetching consumer-stable Opera GX Core..."
@@ -112,7 +83,9 @@ jobs:
           $installer = "$env:TEMP\OperaGXSetup.exe"
           Invoke-WebRequest -Uri $url -OutFile $installer
           
+          # Install normally without launching yet
           Start-Process -FilePath $installer -ArgumentList "--silent=1", "--allusers=1", "--launchbrowser=0", "--desktopshortcut=1" -Wait
+          Start-Sleep -Seconds 5
           
           $publicDesktop = [Environment]::GetFolderPath("CommonDesktopDirectory")
           $userDesktop = "$env:USERPROFILE\Desktop"
@@ -121,15 +94,38 @@ jobs:
               Move-Item -Path "$userDesktop\Opera GX.lnk" -Destination $publicDesktop -Force -ErrorAction SilentlyContinue
           }
           
-          Write-Host "Configuring explicit launcher shortcut with forced promo link and sidebar flags..."
           $operaExe = "$env:ProgramFiles\Opera GX\opera.exe"
           if (-not (Test-Path $operaExe)) { $operaExe = "$env:ProgramFiles (x86)\Opera GX\opera.exe" }
-          
+
+          # Initialize the base settings structure quickly so it exists
+          Start-Process -FilePath $operaExe -ArgumentList "--no-first-run", "--headless" -NoNewWindow
+          Start-Sleep -Seconds 4
+          Stop-Process -Name "opera" -Force -ErrorAction SilentlyContinue
+
+          # Modifying local profile files cleanly to turn features on
+          $prefPath = "$env:APPDATA\Opera Software\Opera GX Stable\Preferences"
+          if (Test-Path $prefPath) {
+              $json = Get-Content $prefPath -Raw
+              # Inject forced parameters directly into the initialized preference string safely
+              if ($json -notmatch '"gx_rewards"') {
+                  $json = $json -replace '"ui":\{', '"ui":{"sidebar":{"visible":true,"pinned_items":["gx_rewards","vpn_sidebar_item"]},'
+              }
+              if ($json -notmatch '"vpn"') {
+                  $json = $json -replace '"freedom":\{', '"freedom":{"proxy_switch":{"vpn_enabled_once_by_user":true},'
+              }
+              Set-Content -Path $prefPath -Value $json -Force
+          }
+
+          Write-Host "Configuring explicit launcher shortcut with forced promo link and sidebar flags..."
           $WshShell = New-Object -ComObject WScript.Shell
           $Shortcut = $WshShell.CreateShortcut("$publicDesktop\Opera GX Browser.lnk")
           $Shortcut.TargetPath = $operaExe
-          $Shortcut.Arguments = "https://www.opera.com/gx/forsaken --no-first-run --enable-features=GXRewards,GXRewardsSidebarItem --enable-vpn"
+          # Append the hard runtime parameter keys down the application shortcut pipeline
+          $Shortcut.Arguments = "https://www.opera.com/gx/forsaken --no-first-run --enable-features=GXRewards,GXRewardsSidebarItem --enable-vpn --with-feature:gx-rewards=1"
           $Shortcut.Save()
+          
+          # Explicitly target execution with corresponding environment triggers active
+          Start-Process -FilePath $operaExe -ArgumentList "https://www.opera.com/gx/forsaken","--no-first-run","--enable-features=GXRewards,GXRewardsSidebarItem","--enable-vpn","--with-feature:gx-rewards=1"
 
       - name: Fetch and Display AnyDesk Connection Address
         run: |
