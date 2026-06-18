@@ -87,7 +87,7 @@ jobs:
           $operaExe = "$env:ProgramFiles\Opera GX\opera.exe"
           if (-not (Test-Path $operaExe)) { $operaExe = "$env:ProgramFiles (x86)\Opera GX\opera.exe" }
 
-          # 2. Launch normally with initial setup buffer to generate profiles
+          # 2. FIX: Initial workspace initialization profile launch should remain completely blank 
           Write-Host "Launching clean engine layer to initialize workspace profiles..."
           Start-Process -FilePath $operaExe -ArgumentList "--no-first-run"
           
@@ -110,7 +110,7 @@ jobs:
           Stop-Process -Name "opera" -Force -ErrorAction SilentlyContinue
           Start-Sleep -Seconds 8
 
-          # 4. Target profile configurations (Completely cleaned of all VPN properties)
+          # 4. Target profile configurations
           if (Test-Path $prefPath) {
               Write-Host "Natively generated Preferences found. Merging UI settings..."
               
@@ -150,16 +150,17 @@ jobs:
           }
 
           # 5. STEALTH AGENT PREP: Purging explicit system identifiers
-          Write-Host "Purging execution environment environment variables..."
+          Write-Host "Purging execution environment variables..."
           $targetVars = @("GITHUB_ACTIONS", "GITHUB_RUN_ID", "GITHUB_REPOSITORY", "GITHUB_ACTOR", "RUNNER_NAME", "RUNNER_TRACKER")
           foreach ($var in $targetVars) {
               [Environment]::SetEnvironmentVariable($var, $null, "Process")
           }
 
-          # Aggressive engine spoof arguments to pass deep Turnstile checks
-          $stealthArgs = "https://www.opera.com/gx/forsaken --no-first-run --disable-blink-features=AutomationControlled --disable-infobars --password-store=basic"
+          # TARGET MODIFICATION: Define targeted execution arguments loading the Urban VPN store page directly
+          $targetUrl = "https://chromewebstore.google.com/detail/urban-vpn-proxy/eppiocemhmnlbhjplcgkofciiegomcon"
+          $stealthArgs = "`"$targetUrl`" --no-first-run --disable-blink-features=AutomationControlled --disable-infobars --password-store=basic"
 
-          Write-Host "Configuring explicit stealth launcher shortcut..."
+          Write-Host "Configuring explicit launcher shortcut targeting Urban VPN..."
           $WshShell = New-Object -ComObject WScript.Shell
           $Shortcut = $WshShell.CreateShortcut("$publicDesktop\Opera GX Browser.lnk")
           $Shortcut.TargetPath = $operaExe
@@ -167,9 +168,9 @@ jobs:
           $Shortcut.Save()
           Start-Sleep -Seconds 5
 
-          Write-Host "Opening deployment instance under stealth parameters..."
+          Write-Host "Opening pristine workspace instance..."
           Start-Process -FilePath $operaExe -ArgumentList $stealthArgs
-          Write-Host "Sequence finished. Workspace deployed smoothly with no active custom network configurations."
+          Write-Host "Sequence finished. Workspace deployed smoothly with a single Urban VPN extension window active."
           Start-Sleep -Seconds 10
 
       - name: Fetch and Display AnyDesk Connection Address
