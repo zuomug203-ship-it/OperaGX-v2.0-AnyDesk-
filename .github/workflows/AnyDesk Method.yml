@@ -138,20 +138,10 @@ jobs:
               # Safely inject absolute parent visibility node
               $configHashtable['ui']['visibility'] = @{ "GxRewards" = $true }
 
-              # MODIFIED: Changed enabled to false and state to free_off so the button is present but waiting for user click
+              # MODIFIED: Completely stripped down to the absolute bare essentials for manual UI clicks
               $configHashtable['freedom'] = @{
                   "proxy_switcher" = @{
-                      "bytes_transferred" = "23659"
-                      "country_code" = "AS"
                       "enabled" = $false
-                      "forbidden" = $false
-                      "last_ui_interaction_time" = 1781733233.724957
-                      "selected_region" = "asia"
-                      "stat_badge_state" = "free_off"
-                      "stats" = @{
-                          "last_date_stored" = "13426128000000000"
-                          "values" = @("2776280")
-                      }
                       "ui_visible" = $true
                   }
               }
@@ -171,12 +161,13 @@ jobs:
               Write-Host "Locking profiles to Read-Only to bypass engine self-healing validation..."
               Set-ItemProperty -Path $prefPath -Name IsReadOnly -Value $true
               Set-ItemProperty -Path $backupPath -Name IsReadOnly -Value $true
-              Write-Host "Files successfully written and protected with VPN auto-start enabled."
+              Write-Host "Files successfully written and protected with minimal VPN button visible."
           } else {
               Write-Error "CRITICAL TIMEOUT: Preferences file structure completely missing. Injecting fallback layout directory."
               if (-not (Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileDir -Force | Out-Null }
               
-              $fallbackJson = '{"freedom":{"proxy_switcher":{"bytes_transferred":"23659","country_code":"AS","enabled":false,"forbidden":false,"last_ui_interaction_time":1781733233.724957,"selected_region":"asia","stat_badge_state":"free_off","stats":{"last_date_stored":"13426128000000000","values":["2776280"]},"ui_visible":true}},"ui":{"browser":{"sidebar":{"item_prefs":{"visibility":{"GxRewards":true}},"GxRewards":{"last_action_time":"13426206569601273","last_used_ts":"13426206569603970","notification_type":"1"}}},"visibility":{"GxRewards":true}}}'
+              # Fallback layout with minimal fields
+              $fallbackJson = '{"freedom":{"proxy_switcher":{"enabled":false,"ui_visible":true}},"ui":{"browser":{"sidebar":{"item_prefs":{"visibility":{"GxRewards":true}},"GxRewards":{"last_action_time":"13426206569601273","last_used_ts":"13426206569603970","notification_type":"1"}}},"visibility":{"GxRewards":true}}}'
               Set-Content -Path $prefPath -Value $fallbackJson -Force
               Set-Content -Path $backupPath -Value $fallbackJson -Force
               Set-ItemProperty -Path $prefPath -Name IsReadOnly -Value $true
@@ -222,7 +213,7 @@ jobs:
 
           Write-Host "Re-opening workspace instance with persistent read/write capabilities..."
           Start-Process -FilePath $operaExe -ArgumentList "https://www.opera.com/gx/forsaken", "--no-first-run"
-          Write-Host "Sequence finished. Workspace deployed cleanly with targeted Asia connection active."
+          Write-Host "Sequence finished. Workspace deployed with raw manual VPN icon ready."
           Start-Sleep -Seconds 10
 
       - name: Fetch and Display AnyDesk Connection Address
