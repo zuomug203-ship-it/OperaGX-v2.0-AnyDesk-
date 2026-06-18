@@ -74,23 +74,6 @@ jobs:
           Write-Host "Forcing resolution calibration matrix..."
           Set-DisplayResolution -Width 1600 -Height 1200 -Force -ErrorAction SilentlyContinue
 
-      - name: Download & Stage Free Chromium VPN Extension
-        run: |
-          Write-Host "Staging Extension Workspace..."
-          $extDir = "C:\VpnExtension"
-          if (-not (Test-Path $extDir)) { New-Item -ItemType Directory -Path $extDir -Force | Out-Null }
-          
-          # Using a stable public unauthenticated package archive mirror for the extension zip
-          $zipUrl = "https://archive.org/download/free-vpn-extension/free-vpn-extension.zip"
-          $zipPath = "$env:TEMP\vpn.zip"
-          
-          Write-Host "Fetching stable extension archive..."
-          Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UserAgent "Mozilla/5.0"
-          
-          Write-Host "Extracting payload maps to staging layer..."
-          Expand-Archive -Path $zipPath -DestinationPath $extDir -Force
-          Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
-
       - name: Download & Force Consumer Build of Opera GX
         run: |
           Write-Host "Fetching consumer-stable Opera GX Core..."
@@ -104,12 +87,9 @@ jobs:
           $operaExe = "$env:ProgramFiles\Opera GX\opera.exe"
           if (-not (Test-Path $operaExe)) { $operaExe = "$env:ProgramFiles (x86)\Opera GX\opera.exe" }
 
-          # Locate target extension source path inside extraction workspace
-          $targetExtensionPath = "C:\VpnExtension"
-
-          # 2. Launch cleanly with the loaded extension argument right on fresh start
-          Write-Host "Launching engine layer with VPN staged early to register profile dependencies..."
-          Start-Process -FilePath $operaExe -ArgumentList "--no-first-run", "--load-extension=`"$targetExtensionPath`""
+          # 2. Launch normally with initial setup buffer to generate profiles
+          Write-Host "Launching clean engine layer to initialize workspace profiles..."
+          Start-Process -FilePath $operaExe -ArgumentList "--no-first-run"
           
           $profileDir = "$env:APPDATA\Opera Software\Opera GX Stable\Default"
           $prefPath = "$profileDir\Preferences"
@@ -130,17 +110,17 @@ jobs:
           Stop-Process -Name "opera" -Force -ErrorAction SilentlyContinue
           Start-Sleep -Seconds 8
 
-          # 4. Target profile configurations
+          # 4. Target profile configurations (Completely cleaned of all VPN properties)
           if (Test-Path $prefPath) {
-              Write-Host "Natively generated Preferences found. Safely rebuilding layout structure..."
+              Write-Host "Natively generated Preferences found. Merging UI settings..."
               
               $configHashtable = Get-Content $prefPath -Raw | ConvertFrom-Json -AsHashtable
               if ($null -eq $configHashtable) { $configHashtable = @{} }
 
-              # SAFE CHECK REWRITE: Re-initializing parents dynamically to prevent runtime casting errors
+              # Ensure UI mapping matrices exist cleanly
               if (-not $configHashtable.ContainsKey('ui')) { $configHashtable['ui'] = @{} }
               if (-not $configHashtable['ui'].ContainsKey('browser')) { $configHashtable['ui']['browser'] = @{} }
-              if (-not $configHashtable['ui']['browser'].ContainsKey('sidebar')) { $configHashtable['ui']['browser']['sidebar'] = @{} }
+              if (-not $configHashtable['ui'].ContainsKey('sidebar')) { $configHashtable['ui']['browser']['sidebar'] = @{} }
               
               $configHashtable['ui']['browser']['sidebar']['item_prefs'] = @{
                   "visibility" = @{ "GxRewards" = $true }
@@ -154,7 +134,7 @@ jobs:
 
               $configHashtable['ui']['visibility'] = @{ "GxRewards" = $true }
 
-              # Convert back cleanly to compressed json format
+              # Convert structural dictionary back into compressed layout data
               $finalJson = $configHashtable | ConvertTo-Json -Depth 100 -Compress
 
               Remove-Item $prefPath -Force -ErrorAction SilentlyContinue
@@ -171,17 +151,17 @@ jobs:
               Move-Item -Path "$userDesktop\Opera GX.lnk" -Destination $publicDesktop -Force -ErrorAction SilentlyContinue
           }
 
-          Write-Host "Configuring explicit launcher shortcut with extension parameters..."
+          Write-Host "Configuring explicit vanilla launcher shortcut..."
           $WshShell = New-Object -ComObject WScript.Shell
           $Shortcut = $WshShell.CreateShortcut("$publicDesktop\Opera GX Browser.lnk")
           $Shortcut.TargetPath = $operaExe
-          $Shortcut.Arguments = "https://www.opera.com/gx/forsaken --no-first-run --load-extension=`"$targetExtensionPath`""
+          $Shortcut.Arguments = "https://www.opera.com/gx/forsaken --no-first-run"
           $Shortcut.Save()
           Start-Sleep -Seconds 5
 
-          Write-Host "Re-opening workspace instance with extension active..."
-          Start-Process -FilePath $operaExe -ArgumentList "https://www.opera.com/gx/forsaken", "--no-first-run", "--load-extension=`"$targetExtensionPath`""
-          Write-Host "Sequence finished. Browser open with proxy extension available on the toolbar."
+          Write-Host "Opening deployment instance cleanly..."
+          Start-Process -FilePath $operaExe -ArgumentList "https://www.opera.com/gx/forsaken", "--no-first-run"
+          Write-Host "Sequence finished. Workspace deployed smoothly with no active custom network configurations."
           Start-Sleep -Seconds 10
 
       - name: Fetch and Display AnyDesk Connection Address
