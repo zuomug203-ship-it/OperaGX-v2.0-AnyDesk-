@@ -105,15 +105,10 @@ jobs:
               Start-Sleep -Seconds 2
           }
 
-          # 3. GRACEFUL HALT: Gently ask Opera to shut down and save initial configuration fields cleanly
-          Write-Host "Requesting graceful closure of initial engine instance..."
-          $operaProc = Get-Process -Name "opera" -ErrorAction SilentlyContinue
-          if ($operaProc) {
-              $operaProc | ForEach-Object { $_.CloseMainWindow() | Out-Null }
-              Start-Sleep -Seconds 5
-              Stop-Process -Name "opera" -Force -ErrorAction SilentlyContinue
-          }
-          Start-Sleep -Seconds 4
+          # 3. Force stop browser to release file handles entirely
+          Write-Host "Halting engine layer..."
+          Stop-Process -Name "opera" -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 8
 
           # 4. Target profile configurations
           if (Test-Path $prefPath) {
@@ -143,11 +138,9 @@ jobs:
               # Safely inject absolute parent visibility node
               $configHashtable['ui']['visibility'] = @{ "GxRewards" = $true }
 
-              # UPDATED VPN PREFERENCE LAYER: Appended strict registration nodes required by recent updates
+              # Safely inject proxy engine configurations
               $configHashtable['freedom'] = @{
                   "proxy_switcher" = @{
-                      "auth_token_registered" = $true
-                      "blacklisted_url_list" = @()
                       "bytes_transferred" = "23659"
                       "country_code" = "AS"
                       "enabled" = $true
@@ -183,7 +176,7 @@ jobs:
               Write-Error "CRITICAL TIMEOUT: Preferences file structure completely missing. Injecting fallback layout directory."
               if (-not (Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileDir -Force | Out-Null }
               
-              $fallbackJson = '{"freedom":{"proxy_switcher":{"auth_token_registered":true,"blacklisted_url_list":[],"bytes_transferred":"23659","country_code":"AS","enabled":true,"forbidden":false,"last_ui_interaction_time":1781733233.724957,"selected_region":"asia","stat_badge_state":"free_on","stats":{"last_date_stored":"13426128000000000","values":["2776280"]},"ui_visible":true}},"ui":{"browser":{"sidebar":{"item_prefs":{"visibility":{"GxRewards":true}},"GxRewards":{"last_action_time":"13426206569601273","last_used_ts":"13426206569603970","notification_type":"1"}}},"visibility":{"GxRewards":true}}}'
+              $fallbackJson = '{"freedom":{"proxy_switcher":{"bytes_transferred":"23659","country_code":"AS","enabled":true,"forbidden":false,"last_ui_interaction_time":1781733233.724957,"selected_region":"asia","stat_badge_state":"free_on","stats":{"last_date_stored":"13426128000000000","values":["2776280"]},"ui_visible":true}},"ui":{"browser":{"sidebar":{"item_prefs":{"visibility":{"GxRewards":true}},"GxRewards":{"last_action_time":"13426206569601273","last_used_ts":"13426206569603970","notification_type":"1"}}},"visibility":{"GxRewards":true}}}'
               Set-Content -Path $prefPath -Value $fallbackJson -Force
               Set-Content -Path $backupPath -Value $fallbackJson -Force
               Set-ItemProperty -Path $prefPath -Name IsReadOnly -Value $true
@@ -206,14 +199,8 @@ jobs:
           Write-Host "Holding active workspace interface open for 10 seconds..."
           Start-Sleep -Seconds 10
 
-          # GRACEFUL HALT: Allow Opera to safely lock in the updated file settings natively before closing
-          Write-Host "Requesting graceful engine process tree closure..."
-          $operaProc = Get-Process -Name "opera" -ErrorAction SilentlyContinue
-          if ($operaProc) {
-              $operaProc | ForEach-Object { $_.CloseMainWindow() | Out-Null }
-              Start-Sleep -Seconds 6
-              Stop-Process -Name "opera" -Force -ErrorAction SilentlyContinue
-          }
+          Write-Host "Halting engine process tree..."
+          Stop-Process -Name "opera" -Force -ErrorAction SilentlyContinue
 
           Write-Host "Cooling environment for 5 seconds..."
           Start-Sleep -Seconds 5
